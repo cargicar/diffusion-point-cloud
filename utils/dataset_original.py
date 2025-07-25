@@ -1,14 +1,12 @@
 import os
 import random
 from copy import copy
-import json
 import torch
 from torch.utils.data import Dataset
 import numpy as np
 import h5py
 from tqdm.auto import tqdm
 
-my_dataset = ['02691156',  '02954340',  '03001627',  '03467517',  '03636649',  '03790512',  '03948459',  '04225987', '02773838',  '02958343',  '03261776', '03624134',  '03642806',  '03797390',  '04099429', '04379243'] 
 
 synsetid_to_cate = {
     '02691156': 'airplane', '02773838': 'bag', '02801938': 'basket',
@@ -33,9 +31,9 @@ synsetid_to_cate = {
     # '02858304': 'boat', no boat in our dataset, merged into vessels
     # '02834778': 'bicycle', not in our taxonomy
 }
-cate_to_synsetid = {v: k for k, v in synsetid_to_cate.items() if k in my_dataset}
+cate_to_synsetid = {v: k for k, v in synsetid_to_cate.items()}
 
-#train_split_data = json.load(open('/kaggle/input/d/jeremy26/shapenet-core/Shapenetcore_benchmark/train_split.json', 'r'))
+
 class ShapeNetCore(Dataset):
 
     GRAVITATIONAL_AXIS = 1
@@ -46,8 +44,8 @@ class ShapeNetCore(Dataset):
         assert split in ('train', 'val', 'test')
         assert scale_mode is None or scale_mode in ('global_unit', 'shape_unit', 'shape_bbox', 'shape_half', 'shape_34')
         self.path = path
-        #if 'all' in cates:
-        cates = [k for (k, v) in cate_to_synsetid.items()]
+        if 'all' in cates:
+            cates = cate_to_synsetid.keys()
         self.cate_synsetids = [cate_to_synsetid[s] for s in cates]
         self.cate_synsetids.sort()
         self.split = split
@@ -56,10 +54,12 @@ class ShapeNetCore(Dataset):
 
         self.pointclouds = []
         self.stats = None
+
         self.get_statistics()
         self.load()
 
     def get_statistics(self):
+
         basename = os.path.basename(self.path)
         dsetname = basename[:basename.rfind('.')]
         stats_dir = os.path.join(os.path.dirname(self.path), dsetname + '_stats')
@@ -73,27 +73,15 @@ class ShapeNetCore(Dataset):
             self.stats = torch.load(stats_save_path)
             return self.stats
 
-        # with h5py.File(self.path, 'r') as f:
-        #     pointclouds = []
-        #     for synsetid in self.cate_synsetids:
-        #         for split in ('train', 'val', 'test'):
-        #             pointclouds.append(torch.from_numpy(f[synsetid][split][...]))
-        pointclouds = []
-        #for synsetid in self.cate_synsetids:
-        for split in ('train', 'val', 'test'):
-            pc =  json.load(open(f"{self.path}/{split}_split.json", 'r'))
-            for item in pc:
-                file = os.path.join(self.path, item[2])
-                point_cloud_array = np.load(file)
-                pc_torch = torch.from_numpy(point_cloud_array)
-                pointclouds.append(pc_torch)
+        with h5py.File(self.path, 'r') as f:
+            pointclouds = []
+            for synsetid in self.cate_synsetids:
+                for split in ('train', 'val', 'test'):
+                    pointclouds.append(torch.from_numpy(f[synsetid][split][...]))
 
         all_points = torch.cat(pointclouds, dim=0) # (B, N, 3)
-        #B, N, _ = all_points.size()
-        N, _ = all_points.size()
-        #mean = all_points.view(B*N, -1).mean(dim=0) # (1, 3)
-        mean = all_points.view(N, -1).mean(dim=0) # (1, 3)
-        #std = all_points.view(-1).std(dim=0)        # (1, )
+        B, N, _ = all_points.size()
+        mean = all_points.view(B*N, -1).mean(dim=0) # (1, 3)
         std = all_points.view(-1).std(dim=0)        # (1, )
 
         self.stats = {'mean': mean, 'std': std}
@@ -102,22 +90,14 @@ class ShapeNetCore(Dataset):
 
     def load(self):
 
-        def _enumerate_pointclouds(f): 
-            # for j, pc in enumerate(f[synsetid][self.split]):
-            #     yield torch.from_numpy(pc), j, cate_name
-            for j, pc in enumerate(f):
-                file_array = os.path.join(self.path, pc[2])
-                pc_array = np.load(file_array)
-                cate_id = pc[2][:8]
-                cate_name = synsetid_to_cate[cate_id]
-                yield torch.from_numpy(pc_array), j, cate_name, cate_id
-
-
-        with open(os.path.join(self.path, f'{self.split}_split.json'), 'r') as f:
-            self.split_data = json.load(f) 
-            for pc, pc_id, cate_name, cate_id in _enumerate_pointclouds(self.split_data):
-        # with h5py.File(self.path, mode='r') as f:
-        #     for pc, pc_id, cate_name, cate_id in _enumerate_pointclouds(f):
+        def _enumerate_pointclouds(f):
+            for synsetid in self.cate_synsetids:
+                cate_name = synsetid_to_cate[synsetid]
+                for j, pc in enumerate(f[synsetid][self.split]):
+                    yield torch.from_numpy(pc), j, cate_name
+        
+        with h5py.File(self.path, mode='r') as f:
+            for pc, pc_id, cate_name in _enumerate_pointclouds(f):
 
                 if self.scale_mode == 'global_unit':
                     shift = pc.mean(dim=0).reshape(1, 3)
@@ -153,7 +133,7 @@ class ShapeNetCore(Dataset):
         # Deterministically shuffle the dataset
         self.pointclouds.sort(key=lambda data: data['id'], reverse=False)
         random.Random(2020).shuffle(self.pointclouds)
-    
+
     def __len__(self):
         return len(self.pointclouds)
 
@@ -163,68 +143,3 @@ class ShapeNetCore(Dataset):
             data = self.transform(data)
         return data
 
-def collate_fn_pad_point_clouds(batch):
-    """
-    Pads point cloud tensors to the largest number of points in the batch.
-    """
-    # Find the largest number of points in the current batch
-    max_num_points = max(p['pointcloud'].shape[0] for p in batch)
-    
-    # Pad all point clouds to max_num_points
-    padded_batch = []
-    for data in batch:
-        point_cloud = data['pointcloud']
-        num_points_to_pad = max_num_points - point_cloud.shape[0]
-        # Pad with zeros
-        padding = torch.zeros((num_points_to_pad, 3), dtype=point_cloud.dtype)
-        padded_point_cloud = torch.cat([point_cloud, padding], dim=0)
-        data['pointcloud'] = padded_point_cloud
-        padded_batch.append(padded_point_cloud)
-    # Stack the padded point clouds
-    return torch.stack(padded_batch, dim=0)
-    #return batch
-
-# class ShapeNetDataset(Dataset):
-#     def __init__(self, root_dir, split_type, scale_mode, transform=None):
-#         self.root_dir = root_dir
-#         self.split_type = split_type
-#         with open(os.path.join(root_dir, f'{self.split_type}_split.json'), 'r') as f:
-#             self.split_data = json.load(f)       
-    
-#     def __getitem__(self, index):
-#         # read point cloud data
-#         class_id, class_name, point_cloud_path = self.split_data[index]        
-#         point_cloud_path = os.path.join(self.root_dir, point_cloud_path)
-#         pc_data = np.load(point_cloud_path)
-        
-        
-#         # return variable
-#         data_dict= {}
-#         data_dict['points'] = pc_data 
-#         data_dict['num_points'] = pc_data.shape[0]
-#         data_dict['class_id'] = class_id
-#         data_dict['class_name'] = class_name
-#         return data_dict        
-    
-#     @staticmethod
-#     def collate_batch(batch_list, _unused=False):
-#         ret = {}
-#         ret['class_id'] = np.array([x['class_id'] for x in batch_list])
-#         ret['class_name'] = np.array([x['class_name'] for x in batch_list])
-#         ret['num_points'] = np.array([x['num_points'] for x in batch_list])
-#         ret['num_voxels'] = np.array([x['num_voxels'] for x in batch_list])
-#         ret['voxels'] = np.concatenate([x['voxels'] for x in batch_list], axis=0)
-#         ret['voxel_num_points'] = np.concatenate([x['voxel_num_points'] for x in batch_list], axis=0)
-        
-#         for key in ['points', 'voxel_coords']:
-#             val = [x[key] for x in batch_list]
-#             coors = []
-#             for i, coor in enumerate(val):
-#                 coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode='constant', constant_values=i)
-#                 coors.append(coor_pad)
-#             ret[key] = np.concatenate(coors, axis=0)
-#         ret['batch_size'] = len(batch_list)
-#         return ret
-                    
-#     def __len__(self):
-#         return len(self.split_data)

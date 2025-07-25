@@ -15,11 +15,10 @@ from models.vae_flow import *
 from models.flow import add_spectral_norm, spectral_norm_power_iteration
 from evaluation import *
 
-
 # Arguments
 parser = argparse.ArgumentParser()
 # Model arguments
-parser.add_argument('--model', type=str, default='flow', choices=['flow', 'gaussian'])
+parser.add_argument('--model', type=str, default='gaussian', choices=['flow', 'gaussian'])
 parser.add_argument('--latent_dim', type=int, default=256)
 parser.add_argument('--num_steps', type=int, default=100)
 parser.add_argument('--beta_1', type=float, default=1e-4)
@@ -36,7 +35,8 @@ parser.add_argument('--residual', type=eval, default=True, choices=[True, False]
 parser.add_argument('--spectral_norm', type=eval, default=False, choices=[True, False])
 
 # Datasets and loaders
-parser.add_argument('--dataset_path', type=str, default='./data/shapenet.hdf5')
+parser.add_argument('--dataset_path', type=str, default='../../datasets/shapenetCore')
+#parser.add_argument('--dataset_path', type=str, default='../../datasets/modelnet40_normal_resampled/')
 parser.add_argument('--categories', type=str_list, default=['airplane'])
 parser.add_argument('--scale_mode', type=str, default='shape_unit')
 parser.add_argument('--train_batch_size', type=int, default=128)
@@ -91,14 +91,29 @@ val_dset = ShapeNetCore(
     split='val',
     scale_mode=args.scale_mode,
 )
-train_iter = get_data_iterator(DataLoader(
+
+train_loader = DataLoader(
     train_dset,
     batch_size=args.train_batch_size,
-    num_workers=0,
-))
+    shuffle=True,
+    collate_fn=collate_fn_pad_point_clouds
+)
+val_loader = DataLoader(
+    val_dset,
+    batch_size=args.train_batch_size,
+    shuffle=False,
+    collate_fn=collate_fn_pad_point_clouds
+)
+
+# train_iter = get_data_iterator(DataLoader(
+#     train_dset,
+#     batch_size=args.train_batch_size,
+#     num_workers=0,
+# ))
 
 # Model
 logger.info('Building model...')
+args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 if args.model == 'gaussian':
     model = GaussianVAE(args).to(args.device)
 elif args.model == 'flow':
@@ -119,37 +134,37 @@ scheduler = get_linear_scheduler(
     start_lr=args.lr,
     end_lr=args.end_lr
 )
-
 # Train, validate and test
-def train(it):
+def train():
     # Load data
-    batch = next(train_iter)
-    x = batch['pointcloud'].to(args.device)
+    for batch in train_loader:
+    #batch = next(train_iter)
+        x = batch.to(args.device)
 
-    # Reset grad and model state
-    optimizer.zero_grad()
-    model.train()
-    if args.spectral_norm:
-        spectral_norm_power_iteration(model, n_power_iterations=1)
+        # Reset grad and model state
+        optimizer.zero_grad()
+        model.train()
+        if args.spectral_norm:
+            spectral_norm_power_iteration(model, n_power_iterations=1)
 
-    # Forward
-    kl_weight = args.kl_weight
-    loss = model.get_loss(x, kl_weight=kl_weight, writer=writer, it=it)
+        # Forward
+        kl_weight = args.kl_weight
+        loss = model.get_loss(x, kl_weight=kl_weight, writer=writer, it=it)
 
-    # Backward and optimize
-    loss.backward()
-    orig_grad_norm = clip_grad_norm_(model.parameters(), args.max_grad_norm)
-    optimizer.step()
-    scheduler.step()
+        # Backward and optimize
+        loss.backward()
+        orig_grad_norm = clip_grad_norm_(model.parameters(), args.max_grad_norm)
+        optimizer.step()
+        scheduler.step()
 
-    logger.info('[Train] Iter %04d | Loss %.6f | Grad %.4f | KLWeight %.4f' % (
-        it, loss.item(), orig_grad_norm, kl_weight
-    ))
-    writer.add_scalar('train/loss', loss, it)
-    writer.add_scalar('train/kl_weight', kl_weight, it)
-    writer.add_scalar('train/lr', optimizer.param_groups[0]['lr'], it)
-    writer.add_scalar('train/grad_norm', orig_grad_norm, it)
-    writer.flush()
+        logger.info('[Train] Iter %04d | Loss %.6f | Grad %.4f | KLWeight %.4f' % (
+            it, loss.item(), orig_grad_norm, kl_weight
+        ))
+        writer.add_scalar('train/loss', loss, it)
+        writer.add_scalar('train/kl_weight', kl_weight, it)
+        writer.add_scalar('train/lr', optimizer.param_groups[0]['lr'], it)
+        writer.add_scalar('train/grad_norm', orig_grad_norm, it)
+        writer.flush()
 
 def validate_inspect(it):
     z = torch.randn([args.num_samples, args.latent_dim]).to(args.device)
@@ -158,7 +173,7 @@ def validate_inspect(it):
     writer.flush()
     logger.info('[Inspect] Generating samples...')
 
-def test(it):
+def test():
     ref_pcs = []
     for i, data in enumerate(val_dset):
         if i >= args.test_size:
@@ -209,7 +224,7 @@ logger.info('Start training...')
 try:
     it = 1
     while it <= args.max_iters:
-        train(it)
+        train()
         if it % args.val_freq == 0 or it == args.max_iters:
             validate_inspect(it)
             opt_states = {
