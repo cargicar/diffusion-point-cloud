@@ -58,7 +58,6 @@ class ShapeNetCore(Dataset):
         self.stats = None
         self.get_statistics()
         self.load()
-
     def get_statistics(self):
         basename = os.path.basename(self.path)
         dsetname = basename[:basename.rfind('.')]

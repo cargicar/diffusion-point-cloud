@@ -19,10 +19,10 @@ from evaluation import *
 parser = argparse.ArgumentParser()
 # Model arguments
 parser.add_argument('--model', type=str, default='gaussian', choices=['flow', 'gaussian'])
-parser.add_argument('--latent_dim', type=int, default=256)
-parser.add_argument('--num_steps', type=int, default=100)
-parser.add_argument('--beta_1', type=float, default=1e-4)
-parser.add_argument('--beta_T', type=float, default=0.02)
+parser.add_argument('--latent_dim', type=int, default=512)
+parser.add_argument('--num_steps', type=int, default=1000)
+parser.add_argument('--beta_1', type=float, default=1e-5)
+parser.add_argument('--beta_T', type=float, default=0.01)
 parser.add_argument('--sched_mode', type=str, default='linear')
 parser.add_argument('--flexibility', type=float, default=0.0)
 parser.add_argument('--truncate_std', type=float, default=2.0)
@@ -35,7 +35,7 @@ parser.add_argument('--residual', type=eval, default=True, choices=[True, False]
 parser.add_argument('--spectral_norm', type=eval, default=False, choices=[True, False])
 
 # Datasets and loaders
-parser.add_argument('--dataset_path', type=str, default='../../datasets/shapenetCore')
+parser.add_argument('--dataset_path', type=str, default='/pscratch/sd/c/ccardona/datasets/shapenetCore/')
 #parser.add_argument('--dataset_path', type=str, default='../../datasets/modelnet40_normal_resampled/')
 parser.add_argument('--categories', type=str_list, default=['airplane'])
 parser.add_argument('--scale_mode', type=str, default='shape_unit')
@@ -43,12 +43,12 @@ parser.add_argument('--train_batch_size', type=int, default=128)
 parser.add_argument('--val_batch_size', type=int, default=64)
 
 # Optimizer and scheduler
-parser.add_argument('--lr', type=float, default=2e-3)
-parser.add_argument('--weight_decay', type=float, default=0)
+parser.add_argument('--lr', type=float, default=1e-4)
+parser.add_argument('--weight_decay', type=float, default=5e-5)
 parser.add_argument('--max_grad_norm', type=float, default=10)
 parser.add_argument('--end_lr', type=float, default=1e-4)
-parser.add_argument('--sched_start_epoch', type=int, default=200*THOUSAND)
-parser.add_argument('--sched_end_epoch', type=int, default=400*THOUSAND)
+parser.add_argument('--sched_start_epoch', type=int, default=2*THOUSAND)
+parser.add_argument('--sched_end_epoch', type=int, default=4*THOUSAND)
 
 # Training
 parser.add_argument('--seed', type=int, default=2020)
@@ -62,6 +62,55 @@ parser.add_argument('--test_size', type=int, default=400)
 parser.add_argument('--tag', type=str, default=None)
 args = parser.parse_args()
 seed_all(args.seed)
+
+
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+def plot_batch_3d(batch_of_point_clouds: torch.Tensor):
+    """
+    Plots each individual point cloud from a batch in a separate 3D scatter plot.
+
+    Args:
+        batch_of_point_clouds: A PyTorch tensor of shape (B, N, 3), where:
+            - B is the batch size (e.g., 128)
+            - N is the number of points (e.g., 2048)
+            - 3 represents the (x, y, z) coordinates
+    """
+    # Get the batch size
+    batch_size = batch_of_point_clouds.shape[0]
+
+    # Loop through each point cloud in the batch
+    #for i in range(batch_size):
+    for i in range(3):
+        # Extract the current point cloud tensor
+        # .detach() is used to remove it from the computation graph.
+        # .cpu() ensures the tensor is on the CPU.
+        # .numpy() converts the tensor to a NumPy array, which matplotlib requires.
+        point_cloud = batch_of_point_clouds[i].detach().cpu().numpy()
+
+        # Separate the coordinates for plotting
+        x = point_cloud[:, 0]
+        y = point_cloud[:, 1]
+        z = point_cloud[:, 2]
+
+        # Create a new figure and a 3D subplot for the current point cloud
+        fig = plt.figure(figsize=(8, 8))
+        ax = fig.add_subplot(111, projection='3d')
+
+        # Plot the points
+        ax.scatter(x, y, z, s=1)  # s is the marker size
+
+        # Set axis labels and a title
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        ax.set_title(f'Point Cloud {i+1} of {batch_size}')
+        
+        # Display the plot
+        plt.savefig(f"results/gen_{i}.png")
+
 
 # Logging
 if args.logging:
@@ -135,12 +184,11 @@ scheduler = get_linear_scheduler(
     end_lr=args.end_lr
 )
 # Train, validate and test
-def train():
+def train(it):
     # Load data
     for batch in train_loader:
     #batch = next(train_iter)
         x = batch.to(args.device)
-
         # Reset grad and model state
         optimizer.zero_grad()
         model.train()
@@ -224,7 +272,7 @@ logger.info('Start training...')
 try:
     it = 1
     while it <= args.max_iters:
-        train()
+        train(it)
         if it % args.val_freq == 0 or it == args.max_iters:
             validate_inspect(it)
             opt_states = {
