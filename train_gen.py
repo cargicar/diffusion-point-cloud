@@ -36,19 +36,20 @@ parser.add_argument('--residual', type=eval, default=True, choices=[True, False]
 parser.add_argument('--spectral_norm', type=eval, default=False, choices=[True, False])
 
 # Datasets and loaders
-parser.add_argument('--dataset_path', type=str, default='./data/shapenet.hdf5')
-parser.add_argument('--categories', type=str_list, default=['airplane'])
+#parser.add_argument('--dataset_path', type=str, default='./data/shapenet.hdf5')
+parser.add_argument('--dataset_path', type=str, default='/home/carlos/Rnet_local/datasets/shapenetCore')
+parser.add_argument('--categories', type=str_list, default=['Airplane'])
 parser.add_argument('--scale_mode', type=str, default='shape_unit')
-parser.add_argument('--train_batch_size', type=int, default=128)
+parser.add_argument('--train_batch_size', type=int, default=64)
 parser.add_argument('--val_batch_size', type=int, default=64)
 
 # Optimizer and scheduler
-parser.add_argument('--lr', type=float, default=2e-3)
-parser.add_argument('--weight_decay', type=float, default=0)
+parser.add_argument('--lr', type=float, default=1e-4)
+parser.add_argument('--weight_decay', type=float, default=1e-4)
 parser.add_argument('--max_grad_norm', type=float, default=10)
-parser.add_argument('--end_lr', type=float, default=1e-4)
-parser.add_argument('--sched_start_epoch', type=int, default=200*THOUSAND)
-parser.add_argument('--sched_end_epoch', type=int, default=400*THOUSAND)
+parser.add_argument('--end_lr', type=float, default=1e-5)
+parser.add_argument('--sched_start_epoch', type=int, default=2*THOUSAND)
+parser.add_argument('--sched_end_epoch', type=int, default=4*THOUSAND)
 
 # Training
 parser.add_argument('--seed', type=int, default=2020)
@@ -57,7 +58,7 @@ parser.add_argument('--log_root', type=str, default='./logs_gen')
 parser.add_argument('--device', type=str, default='cuda')
 parser.add_argument('--max_iters', type=int, default=float('inf'))
 parser.add_argument('--val_freq', type=int, default=1000)
-parser.add_argument('--test_freq', type=int, default=30*THOUSAND)
+parser.add_argument('--test_freq', type=int, default=3*THOUSAND)
 parser.add_argument('--test_size', type=int, default=400)
 parser.add_argument('--tag', type=str, default=None)
 args = parser.parse_args()

@@ -1,145 +1,118 @@
 import os
-import random
-from copy import copy
+import json
 import torch
-from torch.utils.data import Dataset
 import numpy as np
-import h5py
-from tqdm.auto import tqdm
+from torch.utils.data import Dataset
+from copy import copy
 
-
-synsetid_to_cate = {
-    '02691156': 'airplane', '02773838': 'bag', '02801938': 'basket',
-    '02808440': 'bathtub', '02818832': 'bed', '02828884': 'bench',
-    '02876657': 'bottle', '02880940': 'bowl', '02924116': 'bus',
-    '02933112': 'cabinet', '02747177': 'can', '02942699': 'camera',
-    '02954340': 'cap', '02958343': 'car', '03001627': 'chair',
-    '03046257': 'clock', '03207941': 'dishwasher', '03211117': 'monitor',
-    '04379243': 'table', '04401088': 'telephone', '02946921': 'tin_can',
-    '04460130': 'tower', '04468005': 'train', '03085013': 'keyboard',
-    '03261776': 'earphone', '03325088': 'faucet', '03337140': 'file',
-    '03467517': 'guitar', '03513137': 'helmet', '03593526': 'jar',
-    '03624134': 'knife', '03636649': 'lamp', '03642806': 'laptop',
-    '03691459': 'speaker', '03710193': 'mailbox', '03759954': 'microphone',
-    '03761084': 'microwave', '03790512': 'motorcycle', '03797390': 'mug',
-    '03928116': 'piano', '03938244': 'pillow', '03948459': 'pistol',
-    '03991062': 'pot', '04004475': 'printer', '04074963': 'remote_control',
-    '04090263': 'rifle', '04099429': 'rocket', '04225987': 'skateboard',
-    '04256520': 'sofa', '04330267': 'stove', '04530566': 'vessel',
-    '04554684': 'washer', '02992529': 'cellphone',
-    '02843684': 'birdhouse', '02871439': 'bookshelf',
-    # '02858304': 'boat', no boat in our dataset, merged into vessels
-    # '02834778': 'bicycle', not in our taxonomy
-}
+# The provided dictionary mapping synset IDs to category names
+synsetid_to_cate = {'02691156': 'Airplane', '02773838': 'Bag', '02801938': 'Basket', '02808440': 'Bathtub', '02818832': 'Bed', '02828884': 'Bench', '02876657': 'Bottle', '02880940': 'Bowl', 
+                    '02924116': 'Bus', '02933112': 'Cabinet', '02747177': 'Can', '02942699': 'Camera', '02954340': 'Cap', '02958343': 'Car', '03001627': 'Chair', '03046257': 'Clock', 
+                    '03207941': 'Dishwasher', '03211117': 'Monitor', '04379243': 'Table', '04401088': 'Telephone', '02946921': 'Tin_can', '04460130': 'Tower', '04468005': 'Train',
+                    '03085013': 'Keyboard', '03261776': 'Earphone', '03325088': 'Faucet', '03337140': 'File', '03467517': 'Guitar', '03513137': 'Helmet', '03593516': 'Jar', '03624134': 'Knife', 
+                    '03636649': 'Lamp', '03642806': 'Laptop', '03691459': 'Speaker', '03710193': 'Mailbox', '03759954': 'Microphone', '03761084': 'Microwave', '03790512': 'Motorcycle', '03797390': 'Mug',
+                    '03928116': 'Piano', '03938244': 'Pillow', '03948459': 'Pistol', '03991062': 'Pot', '04004475': 'Printer', '04074963': 'Remote_control', '04090263': 'Rifle', '04099429': 'Rocket', 
+                    '04225987': 'Skateboard', '04256520': 'Sofa', '04330267': 'Stove', '04530566': 'Vessel', '04554684': 'Washer', '02992529': 'Cellphone', '02843684': 'Birdhouse', '02871439': 'Bookshelf'}
 cate_to_synsetid = {v: k for k, v in synsetid_to_cate.items()}
-
 
 class ShapeNetCore(Dataset):
 
-    GRAVITATIONAL_AXIS = 1
-    
     def __init__(self, path, cates, split, scale_mode, transform=None):
         super().__init__()
         assert isinstance(cates, list), '`cates` must be a list of cate names.'
         assert split in ('train', 'val', 'test')
-        assert scale_mode is None or scale_mode in ('global_unit', 'shape_unit', 'shape_bbox', 'shape_half', 'shape_34')
-        self.path = path
-        if 'all' in cates:
-            cates = cate_to_synsetid.keys()
-        self.cate_synsetids = [cate_to_synsetid[s] for s in cates]
-        self.cate_synsetids.sort()
+        assert scale_mode in ('global_unit', 'shape_unit', 'shape_bbox', 'shape_half', 'shape_34', None)
+        
+        self.path = path  # The root directory of the dataset
         self.split = split
         self.scale_mode = scale_mode
         self.transform = transform
-
-        self.pointclouds = []
         self.stats = None
-
-        self.get_statistics()
-        self.load()
-
-    def get_statistics(self):
-
-        basename = os.path.basename(self.path)
-        dsetname = basename[:basename.rfind('.')]
-        stats_dir = os.path.join(os.path.dirname(self.path), dsetname + '_stats')
-        os.makedirs(stats_dir, exist_ok=True)
-
-        if len(self.cate_synsetids) == len(cate_to_synsetid):
-            stats_save_path = os.path.join(stats_dir, 'stats_all.pt')
-        else:
-            stats_save_path = os.path.join(stats_dir, 'stats_' + '_'.join(self.cate_synsetids) + '.pt')
-        if os.path.exists(stats_save_path):
-            self.stats = torch.load(stats_save_path)
-            return self.stats
-
-        with h5py.File(self.path, 'r') as f:
-            pointclouds = []
-            for synsetid in self.cate_synsetids:
-                for split in ('train', 'val', 'test'):
-                    pointclouds.append(torch.from_numpy(f[synsetid][split][...]))
-
-        all_points = torch.cat(pointclouds, dim=0) # (B, N, 3)
-        B, N, _ = all_points.size()
-        mean = all_points.view(B*N, -1).mean(dim=0) # (1, 3)
-        std = all_points.view(-1).std(dim=0)        # (1, )
-
-        self.stats = {'mean': mean, 'std': std}
-        torch.save(self.stats, stats_save_path)
-        return self.stats
-
-    def load(self):
-
-        def _enumerate_pointclouds(f):
-            for synsetid in self.cate_synsetids:
-                cate_name = synsetid_to_cate[synsetid]
-                for j, pc in enumerate(f[synsetid][self.split]):
-                    yield torch.from_numpy(pc), j, cate_name
         
-        with h5py.File(self.path, mode='r') as f:
-            for pc, pc_id, cate_name in _enumerate_pointclouds(f):
+        # Load the split JSON file
+        split_path = os.path.join(self.path, f'{self.split}_split.json')
+        with open(split_path, 'r') as f:
+            data_list = json.load(f)
+        # Filter data based on specified categories
+        self.data_list = []
+        if 'all' in cates:
+            self.data_list = data_list
+        else:
+            cate_set = set(cates)
+            for item in data_list:
+                _, cate_name, _ = item
+                if cate_name in cate_set:
+                    self.data_list.append(item)
+        
+        print(f'Loaded {len(self.data_list)} models for split "{self.split}".')
 
-                if self.scale_mode == 'global_unit':
-                    shift = pc.mean(dim=0).reshape(1, 3)
-                    scale = self.stats['std'].reshape(1, 1)
-                elif self.scale_mode == 'shape_unit':
-                    shift = pc.mean(dim=0).reshape(1, 3)
-                    scale = pc.flatten().std().reshape(1, 1)
-                elif self.scale_mode == 'shape_half':
-                    shift = pc.mean(dim=0).reshape(1, 3)
-                    scale = pc.flatten().std().reshape(1, 1) / (0.5)
-                elif self.scale_mode == 'shape_34':
-                    shift = pc.mean(dim=0).reshape(1, 3)
-                    scale = pc.flatten().std().reshape(1, 1) / (0.75)
-                elif self.scale_mode == 'shape_bbox':
-                    pc_max, _ = pc.max(dim=0, keepdim=True) # (1, 3)
-                    pc_min, _ = pc.min(dim=0, keepdim=True) # (1, 3)
-                    shift = ((pc_min + pc_max) / 2).view(1, 3)
-                    scale = (pc_max - pc_min).max().reshape(1, 1) / 2
-                else:
-                    shift = torch.zeros([1, 3])
-                    scale = torch.ones([1, 1])
+        # Load pre-computed statistics for global normalization
+        if self.scale_mode == 'global_unit':
+            stats_path = os.path.join(self.path, '_stats/stats_all.pt')
+            if not os.path.exists(stats_path):
+                raise FileNotFoundError(f"Global statistics file not found at: {stats_path}. Please pre-compute it.")
+            self.stats = torch.load(stats_path)
+            print("Loaded global statistics.")
 
-                pc = (pc - shift) / scale
-
-                self.pointclouds.append({
-                    'pointcloud': pc,
-                    'cate': cate_name,
-                    'id': pc_id,
-                    'shift': shift,
-                    'scale': scale
-                })
-
-        # Deterministically shuffle the dataset
-        self.pointclouds.sort(key=lambda data: data['id'], reverse=False)
-        random.Random(2020).shuffle(self.pointclouds)
 
     def __len__(self):
-        return len(self.pointclouds)
+        return len(self.data_list)
 
     def __getitem__(self, idx):
-        data = {k:v.clone() if isinstance(v, torch.Tensor) else copy(v) for k, v in self.pointclouds[idx].items()}
+        # Retrieve info from the filtered list
+        _, cate_name, file_path_rel = self.data_list[idx]
+        file_path = os.path.join(self.path, file_path_rel)
+        
+        # Load the point cloud from the .npy file
+        pc = torch.from_numpy(np.load(file_path))
+        
+        # Apply scaling based on the chosen mode
+        if self.scale_mode == 'global_unit':
+            shift = self.stats['mean'].reshape(1, 3)
+            scale = self.stats['std'].reshape(1, 1)
+        elif self.scale_mode == 'shape_unit':
+            shift = pc.mean(dim=0).reshape(1, 3)
+            scale = pc.flatten().std().reshape(1, 1)
+        elif self.scale_mode == 'shape_half':
+            shift = pc.mean(dim=0).reshape(1, 3)
+            scale = pc.flatten().std().reshape(1, 1) / (0.5)
+        elif self.scale_mode == 'shape_bbox':
+            pc_max, _ = pc.max(dim=0, keepdim=True)
+            pc_min, _ = pc.min(dim=0, keepdim=True)
+            shift = ((pc_min + pc_max) / 2).view(1, 3)
+            scale = (pc_max - pc_min).max().reshape(1, 1) / 2
+        else: # No scaling
+            shift = torch.zeros([1, 3])
+            scale = torch.ones([1, 1])
+
+        # Apply the transformation
+        pc = (pc - shift) / scale
+
+        data = {
+            'pointcloud': pc,
+            'cate': cate_name,
+            'id': idx, # Use index as a unique ID for this split
+            'shift': shift,
+            'scale': scale
+        }
+
+        # Apply any optional external transforms
         if self.transform is not None:
             data = self.transform(data)
+
         return data
 
+# if __name__=="__main__":
+#     import argparse
+#     parser = argparse.ArgumentParser(description='ShapeNetCore Dataset Example')
+#     parser.add_argument('--path', type=str, required=True, help='Path to the ShapeNetCore dataset root directory')
+#     parser.add_argument('--cates', type=str, nargs='+', default=['Airplane','Bag', 'Basket'], help='List of categories to load')
+#     parser.add_argument('--split', type=str, choices=['train', 'val', 'test'], default='train', help='Dataset split to use')
+#     parser.add_argument('--scale_mode', type=str, choices=['global_unit', 'shape_unit', 'shape_bbox', 'shape_half', None], default='shape_unit', help='Scaling mode for point clouds')
+    
+#     args = parser.parse_args()
+#     #args.path = f"/home/carlos/Rnet_local/datasets/shapenetCore"
+#     dataset = ShapeNetCore(path=args.path, cates=args.cates, split=args.split, scale_mode=args.scale_mode)
+#     print(f'Dataset size: {len(dataset)}')
+#     sample = dataset[0]
+#     print(sample)
