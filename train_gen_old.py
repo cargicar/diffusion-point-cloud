@@ -15,20 +15,19 @@ from models.vae_flow import *
 from models.flow import add_spectral_norm, spectral_norm_power_iteration
 from evaluation import *
 
-
 # Arguments
 parser = argparse.ArgumentParser()
 # Model arguments
-parser.add_argument('--model', type=str, default='flow', choices=['flow', 'gaussian'])
-parser.add_argument('--latent_dim', type=int, default=256)
+parser.add_argument('--model', type=str, default='gaussian', choices=['flow', 'gaussian'])
+parser.add_argument('--latent_dim', type=int, default=512)
 parser.add_argument('--num_steps', type=int, default=1000)
-parser.add_argument('--beta_1', type=float, default=1e-4)
-parser.add_argument('--beta_T', type=float, default=0.02)
+parser.add_argument('--beta_1', type=float, default=1e-5)
+parser.add_argument('--beta_T', type=float, default=0.01)
 parser.add_argument('--sched_mode', type=str, default='linear')
 parser.add_argument('--flexibility', type=float, default=0.0)
 parser.add_argument('--truncate_std', type=float, default=2.0)
 parser.add_argument('--latent_flow_depth', type=int, default=14)
-parser.add_argument('--latent_flow_hidden_dim', type=int, default=512)
+parser.add_argument('--latent_flow_hidden_dim', type=int, default=256)
 parser.add_argument('--num_samples', type=int, default=4)
 parser.add_argument('--sample_num_points', type=int, default=2048)
 parser.add_argument('--kl_weight', type=float, default=0.001)
@@ -36,18 +35,18 @@ parser.add_argument('--residual', type=eval, default=True, choices=[True, False]
 parser.add_argument('--spectral_norm', type=eval, default=False, choices=[True, False])
 
 # Datasets and loaders
-#parser.add_argument('--dataset_path', type=str, default='./data/shapenet.hdf5')
-parser.add_argument('--dataset_path', type=str, default='/home/carlos/Rnet_local/datasets/shapenetCore')
-parser.add_argument('--categories', type=str_list, default=['Airplane'])
+parser.add_argument('--dataset_path', type=str, default='/pscratch/sd/c/ccardona/datasets/shapenetCore/')
+#parser.add_argument('--dataset_path', type=str, default='../../datasets/modelnet40_normal_resampled/')
+parser.add_argument('--categories', type=str_list, default=['airplane'])
 parser.add_argument('--scale_mode', type=str, default='shape_unit')
-parser.add_argument('--train_batch_size', type=int, default=64)
+parser.add_argument('--train_batch_size', type=int, default=128)
 parser.add_argument('--val_batch_size', type=int, default=64)
 
 # Optimizer and scheduler
 parser.add_argument('--lr', type=float, default=1e-4)
-parser.add_argument('--weight_decay', type=float, default=1e-4)
+parser.add_argument('--weight_decay', type=float, default=5e-5)
 parser.add_argument('--max_grad_norm', type=float, default=10)
-parser.add_argument('--end_lr', type=float, default=1e-5)
+parser.add_argument('--end_lr', type=float, default=1e-4)
 parser.add_argument('--sched_start_epoch', type=int, default=2*THOUSAND)
 parser.add_argument('--sched_end_epoch', type=int, default=4*THOUSAND)
 
@@ -58,11 +57,60 @@ parser.add_argument('--log_root', type=str, default='./logs_gen')
 parser.add_argument('--device', type=str, default='cuda')
 parser.add_argument('--max_iters', type=int, default=float('inf'))
 parser.add_argument('--val_freq', type=int, default=1000)
-parser.add_argument('--test_freq', type=int, default=3*THOUSAND)
+parser.add_argument('--test_freq', type=int, default=30*THOUSAND)
 parser.add_argument('--test_size', type=int, default=400)
 parser.add_argument('--tag', type=str, default=None)
 args = parser.parse_args()
 seed_all(args.seed)
+
+
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+def plot_batch_3d(batch_of_point_clouds: torch.Tensor):
+    """
+    Plots each individual point cloud from a batch in a separate 3D scatter plot.
+
+    Args:
+        batch_of_point_clouds: A PyTorch tensor of shape (B, N, 3), where:
+            - B is the batch size (e.g., 128)
+            - N is the number of points (e.g., 2048)
+            - 3 represents the (x, y, z) coordinates
+    """
+    # Get the batch size
+    batch_size = batch_of_point_clouds.shape[0]
+
+    # Loop through each point cloud in the batch
+    #for i in range(batch_size):
+    for i in range(3):
+        # Extract the current point cloud tensor
+        # .detach() is used to remove it from the computation graph.
+        # .cpu() ensures the tensor is on the CPU.
+        # .numpy() converts the tensor to a NumPy array, which matplotlib requires.
+        point_cloud = batch_of_point_clouds[i].detach().cpu().numpy()
+
+        # Separate the coordinates for plotting
+        x = point_cloud[:, 0]
+        y = point_cloud[:, 1]
+        z = point_cloud[:, 2]
+
+        # Create a new figure and a 3D subplot for the current point cloud
+        fig = plt.figure(figsize=(8, 8))
+        ax = fig.add_subplot(111, projection='3d')
+
+        # Plot the points
+        ax.scatter(x, y, z, s=1)  # s is the marker size
+
+        # Set axis labels and a title
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        ax.set_title(f'Point Cloud {i+1} of {batch_size}')
+        
+        # Display the plot
+        plt.savefig(f"results/gen_{i}.png")
+
 
 # Logging
 if args.logging:
@@ -97,24 +145,24 @@ train_loader = DataLoader(
     train_dset,
     batch_size=args.train_batch_size,
     shuffle=True,
-    #collate_fn=collate_fn_pad_point_clouds
-
+    collate_fn=collate_fn_pad_point_clouds
 )
 val_loader = DataLoader(
     val_dset,
     batch_size=args.train_batch_size,
     shuffle=False,
-    #collate_fn=collate_fn_pad_point_clouds
+    collate_fn=collate_fn_pad_point_clouds
 )
-#train_iter = get_data_iterator(DataLoader(train_loader))
-train_iter = get_data_iterator(DataLoader(
-    train_dset,
-    batch_size=args.train_batch_size,
-    num_workers=0,
-))
+
+# train_iter = get_data_iterator(DataLoader(
+#     train_dset,
+#     batch_size=args.train_batch_size,
+#     num_workers=0,
+# ))
 
 # Model
 logger.info('Building model...')
+args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 if args.model == 'gaussian':
     model = GaussianVAE(args).to(args.device)
 elif args.model == 'flow':
@@ -135,37 +183,36 @@ scheduler = get_linear_scheduler(
     start_lr=args.lr,
     end_lr=args.end_lr
 )
-
 # Train, validate and test
 def train(it):
     # Load data
-    batch = next(train_iter)
-    x = batch['pointcloud'].to(args.device)
+    for batch in train_loader:
+    #batch = next(train_iter)
+        x = batch.to(args.device)
+        # Reset grad and model state
+        optimizer.zero_grad()
+        model.train()
+        if args.spectral_norm:
+            spectral_norm_power_iteration(model, n_power_iterations=1)
 
-    # Reset grad and model state
-    optimizer.zero_grad()
-    model.train()
-    if args.spectral_norm:
-        spectral_norm_power_iteration(model, n_power_iterations=1)
+        # Forward
+        kl_weight = args.kl_weight
+        loss = model.get_loss(x, kl_weight=kl_weight, writer=writer, it=it)
 
-    # Forward
-    kl_weight = args.kl_weight
-    loss = model.get_loss(x, kl_weight=kl_weight, writer=writer, it=it)
+        # Backward and optimize
+        loss.backward()
+        orig_grad_norm = clip_grad_norm_(model.parameters(), args.max_grad_norm)
+        optimizer.step()
+        scheduler.step()
 
-    # Backward and optimize
-    loss.backward()
-    orig_grad_norm = clip_grad_norm_(model.parameters(), args.max_grad_norm)
-    optimizer.step()
-    scheduler.step()
-
-    logger.info('[Train] Iter %04d | Loss %.6f | Grad %.4f | KLWeight %.4f' % (
-        it, loss.item(), orig_grad_norm, kl_weight
-    ))
-    writer.add_scalar('train/loss', loss, it)
-    writer.add_scalar('train/kl_weight', kl_weight, it)
-    writer.add_scalar('train/lr', optimizer.param_groups[0]['lr'], it)
-    writer.add_scalar('train/grad_norm', orig_grad_norm, it)
-    writer.flush()
+        logger.info('[Train] Iter %04d | Loss %.6f | Grad %.4f | KLWeight %.4f' % (
+            it, loss.item(), orig_grad_norm, kl_weight
+        ))
+        writer.add_scalar('train/loss', loss, it)
+        writer.add_scalar('train/kl_weight', kl_weight, it)
+        writer.add_scalar('train/lr', optimizer.param_groups[0]['lr'], it)
+        writer.add_scalar('train/grad_norm', orig_grad_norm, it)
+        writer.flush()
 
 def validate_inspect(it):
     z = torch.randn([args.num_samples, args.latent_dim]).to(args.device)
@@ -174,7 +221,7 @@ def validate_inspect(it):
     writer.flush()
     logger.info('[Inspect] Generating samples...')
 
-def test(it):
+def test():
     ref_pcs = []
     for i, data in enumerate(val_dset):
         if i >= args.test_size:

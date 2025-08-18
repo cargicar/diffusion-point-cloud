@@ -58,6 +58,52 @@ class ShapeNetCore(Dataset):
     def __len__(self):
         return len(self.data_list)
 
+    # def __getitem__(self, idx):
+    #     # Retrieve info from the filtered list
+    #     _, cate_name, file_path_rel = self.data_list[idx]
+    #     file_path = os.path.join(self.path, file_path_rel)
+        
+    #     # Load the point cloud from the .npy file
+    #     pc = torch.from_numpy(np.load(file_path))
+        
+    #     # Apply scaling based on the chosen mode
+    #     if self.scale_mode == 'global_unit':
+    #         shift = self.stats['mean'].reshape(1, 3)
+    #         scale = self.stats['std'].reshape(1, 1)
+    #     elif self.scale_mode == 'shape_unit':
+    #         shift = pc.mean(dim=0).reshape(1, 3)
+    #         scale = pc.flatten().std().reshape(1, 1)
+    #     elif self.scale_mode == 'shape_half':
+    #         shift = pc.mean(dim=0).reshape(1, 3)
+    #         scale = pc.flatten().std().reshape(1, 1) / (0.5)
+    #     elif self.scale_mode == 'shape_bbox':
+    #         pc_max, _ = pc.max(dim=0, keepdim=True)
+    #         pc_min, _ = pc.min(dim=0, keepdim=True)
+    #         shift = ((pc_min + pc_max) / 2).view(1, 3)
+    #         scale = (pc_max - pc_min).max().reshape(1, 1) / 2
+    #     else: # No scaling
+    #         shift = torch.zeros([1, 3])
+    #         scale = torch.ones([1, 1])
+
+    #     # Apply the transformation
+    #     pc = (pc - shift) / scale
+
+    #     data = {
+    #         'pointcloud': pc,
+    #         'cate': cate_name,
+    #         'id': idx, # Use index as a unique ID for this split
+    #         'shift': shift,
+    #         'scale': scale
+    #     }
+
+    #     # Apply any optional external transforms
+    #     if self.transform is not None:
+    #         data = self.transform(data)
+
+    #     return data
+    
+    #### New Getitem with max num of poitns
+    #FIXME add flag for max num of points
     def __getitem__(self, idx):
         # Retrieve info from the filtered list
         _, cate_name, file_path_rel = self.data_list[idx]
@@ -66,6 +112,21 @@ class ShapeNetCore(Dataset):
         # Load the point cloud from the .npy file
         pc = torch.from_numpy(np.load(file_path))
         
+        #FIXME
+        # Define a fixed number of points for all point clouds
+        num_points = 2048  # You can adjust this value
+
+        # Sample or pad the point cloud to the fixed size
+        if pc.shape[0] > num_points:
+            # Randomly sample 'num_points' from the point cloud
+            indices = np.random.choice(pc.shape[0], num_points, replace=False)
+            pc = pc[indices]
+        elif pc.shape[0] < num_points:
+            # Pad with zeros or duplicate points if the point cloud is too small
+            # This is a basic padding approach; more advanced methods exist.
+            zeros_to_add = torch.zeros(num_points - pc.shape[0], 3)
+            pc = torch.cat([pc, zeros_to_add], dim=0)
+
         # Apply scaling based on the chosen mode
         if self.scale_mode == 'global_unit':
             shift = self.stats['mean'].reshape(1, 3)
@@ -101,6 +162,27 @@ class ShapeNetCore(Dataset):
             data = self.transform(data)
 
         return data
+### old collate
+# def collate_fn_pad_point_clouds(batch):
+#     """
+#     Pads point cloud tensors to the largest number of points in the batch.
+#     """
+#     # Find the largest number of points in the current batch
+#     max_num_points = max(p['pointcloud'].shape[0] for p in batch)
+    
+#     # Pad all point clouds to max_num_points
+#     padded_batch = []
+#     for data in batch:
+#         point_cloud = data['pointcloud']
+#         num_points_to_pad = max_num_points - point_cloud.shape[0]
+#         # Pad with zeros
+#         padding = torch.zeros((num_points_to_pad, 3), dtype=point_cloud.dtype)
+#         padded_point_cloud = torch.cat([point_cloud, padding], dim=0)
+#         data['pointcloud'] = padded_point_cloud
+#         padded_batch.append(padded_point_cloud)
+#     # Stack the padded point clouds
+#     return torch.stack(padded_batch, dim=0)
+
 
 # if __name__=="__main__":
 #     import argparse
