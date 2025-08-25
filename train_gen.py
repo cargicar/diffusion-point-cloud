@@ -37,7 +37,7 @@ parser.add_argument('--spectral_norm', type=eval, default=False, choices=[True, 
 # Datasets and loaders
 parser.add_argument('--dataset_path', type=str, default='/pscratch/sd/c/ccardona/datasets/shapenetCore/')
 #parser.add_argument('--dataset_path', type=str, default='../../datasets/modelnet40_normal_resampled/')
-parser.add_argument('--categories', type=str_list, default=['airplane'])
+parser.add_argument('--categories', type=str_list, default=['Airplane'])
 parser.add_argument('--scale_mode', type=str, default='shape_unit')
 parser.add_argument('--train_batch_size', type=int, default=128)
 parser.add_argument('--val_batch_size', type=int, default=64)
@@ -145,13 +145,13 @@ train_loader = DataLoader(
     train_dset,
     batch_size=args.train_batch_size,
     shuffle=True,
-    collate_fn=collate_fn_pad_point_clouds
+    #collate_fn=collate_fn_pad_point_clouds
 )
 val_loader = DataLoader(
     val_dset,
     batch_size=args.train_batch_size,
     shuffle=False,
-    collate_fn=collate_fn_pad_point_clouds
+    #collate_fn=collate_fn_pad_point_clouds
 )
 
 # train_iter = get_data_iterator(DataLoader(
@@ -188,7 +188,12 @@ def train(it):
     # Load data
     for batch in train_loader:
     #batch = next(train_iter)
-        x = batch.to(args.device)
+        x = batch["pointcloud"]
+        y = batch["cate"]
+        #breakpoint()
+        #x = batch.to(args.device)
+        #y = y.to(args.device)
+        x = x.to(args.device)
         # Reset grad and model state
         optimizer.zero_grad()
         model.train()

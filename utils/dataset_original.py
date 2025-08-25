@@ -64,7 +64,7 @@ class ShapeNetCore(Dataset):
         dsetname = basename[:basename.rfind('.')]
         stats_dir = os.path.join(os.path.dirname(self.path), dsetname + '_stats')
         os.makedirs(stats_dir, exist_ok=True)
-
+        
         if len(self.cate_synsetids) == len(cate_to_synsetid):
             stats_save_path = os.path.join(stats_dir, 'stats_all.pt')
         else:
@@ -73,6 +73,7 @@ class ShapeNetCore(Dataset):
             self.stats = torch.load(stats_save_path)
             return self.stats
 
+        
         with h5py.File(self.path, 'r') as f:
             pointclouds = []
             for synsetid in self.cate_synsetids:
@@ -143,3 +144,27 @@ class ShapeNetCore(Dataset):
             data = self.transform(data)
         return data
 
+
+if __name__=="__main__":
+    path = f"/pscratch/sd/c/ccardona/datasets/shapenetCore"
+    cates = ["airplane", "bathtub"]
+    split = "train"
+    scale_mode = "shape_unit"
+
+    train_dst = ShapeNetCore(path, cates, split, scale_mode)
+    
+    train_loader = DataLoader(
+    train_dst,
+    batch_size=12,
+    shuffle=True,
+    collate_fn=collate_fn_pad_point_clouds
+    )
+    for batch in train_loader:
+    #batch = next(train_iter)
+        breakpoint()
+        x = batch.to(args.device)
+    
+for batch in train_loader:
+    #batch = next(train_iter)
+        x = batch.to(args.device)
+    
