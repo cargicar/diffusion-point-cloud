@@ -2,7 +2,7 @@
 
 #SBATCH --job-name=omnilearn_shapenet
 #SBATCH --nodes=1
-#SBATCH --time=10:00:00
+#SBATCH --time=5:00:00
 #SBATCH --constraint=gpu
 #SBATCH --gpus=4
 #SBATCH --qos=regular

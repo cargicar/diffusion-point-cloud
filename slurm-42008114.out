@@ -1,0 +1,128 @@
+[2025-08-25 12:03:11,739::train::INFO] Namespace(model='gaussian', latent_dim=512, num_steps=1000, beta_1=1e-05, beta_T=0.01, sched_mode='linear', flexibility=0.0, truncate_std=2.0, latent_flow_depth=14, latent_flow_hidden_dim=256, num_samples=4, sample_num_points=2048, kl_weight=0.001, residual=True, spectral_norm=False, dataset_path='/pscratch/sd/c/ccardona/datasets/shapenetCore/', categories=['Airplane'], scale_mode='shape_unit', train_batch_size=128, val_batch_size=64, lr=0.0001, weight_decay=5e-05, max_grad_norm=10, end_lr=0.0001, sched_start_epoch=2000, sched_end_epoch=4000, seed=2020, logging=True, log_root='./logs_gen', device='cuda', max_iters=inf, val_freq=1000, test_freq=30000, test_size=400, tag=None)
+[2025-08-25 12:03:11,741::train::INFO] Loading datasets...
+[2025-08-25 12:03:11,760::train::INFO] Building model...
+[2025-08-25 12:03:14,940::train::INFO] GaussianVAE(
+  (encoder): PointNetEncoder(
+    (conv1): Conv1d(3, 128, kernel_size=(1,), stride=(1,))
+    (conv2): Conv1d(128, 128, kernel_size=(1,), stride=(1,))
+    (conv3): Conv1d(128, 256, kernel_size=(1,), stride=(1,))
+    (conv4): Conv1d(256, 512, kernel_size=(1,), stride=(1,))
+    (bn1): BatchNorm1d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (bn2): BatchNorm1d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (bn3): BatchNorm1d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (bn4): BatchNorm1d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (fc1_m): Linear(in_features=512, out_features=256, bias=True)
+    (fc2_m): Linear(in_features=256, out_features=128, bias=True)
+    (fc3_m): Linear(in_features=128, out_features=512, bias=True)
+    (fc_bn1_m): BatchNorm1d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (fc_bn2_m): BatchNorm1d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (fc1_v): Linear(in_features=512, out_features=256, bias=True)
+    (fc2_v): Linear(in_features=256, out_features=128, bias=True)
+    (fc3_v): Linear(in_features=128, out_features=512, bias=True)
+    (fc_bn1_v): BatchNorm1d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (fc_bn2_v): BatchNorm1d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  )
+  (diffusion): DiffusionPoint(
+    (net): PointwiseNet(
+      (layers): ModuleList(
+        (0): ConcatSquashLinear(
+          (_layer): Linear(in_features=3, out_features=128, bias=True)
+          (_hyper_bias): Linear(in_features=515, out_features=128, bias=False)
+          (_hyper_gate): Linear(in_features=515, out_features=128, bias=True)
+        )
+        (1): ConcatSquashLinear(
+          (_layer): Linear(in_features=128, out_features=256, bias=True)
+          (_hyper_bias): Linear(in_features=515, out_features=256, bias=False)
+          (_hyper_gate): Linear(in_features=515, out_features=256, bias=True)
+        )
+        (2): ConcatSquashLinear(
+          (_layer): Linear(in_features=256, out_features=512, bias=True)
+          (_hyper_bias): Linear(in_features=515, out_features=512, bias=False)
+          (_hyper_gate): Linear(in_features=515, out_features=512, bias=True)
+        )
+        (3): ConcatSquashLinear(
+          (_layer): Linear(in_features=512, out_features=256, bias=True)
+          (_hyper_bias): Linear(in_features=515, out_features=256, bias=False)
+          (_hyper_gate): Linear(in_features=515, out_features=256, bias=True)
+        )
+        (4): ConcatSquashLinear(
+          (_layer): Linear(in_features=256, out_features=128, bias=True)
+          (_hyper_bias): Linear(in_features=515, out_features=128, bias=False)
+          (_hyper_gate): Linear(in_features=515, out_features=128, bias=True)
+        )
+        (5): ConcatSquashLinear(
+          (_layer): Linear(in_features=128, out_features=3, bias=True)
+          (_hyper_bias): Linear(in_features=515, out_features=3, bias=False)
+          (_hyper_gate): Linear(in_features=515, out_features=3, bias=True)
+        )
+      )
+    )
+    (var_sched): VarianceSchedule()
+  )
+)
+[2025-08-25 12:03:23,809::train::INFO] Start training...
+[2025-08-25 12:03:27,760::train::INFO] [Train] Iter 0001 | Loss 241.530273 | Grad 4.7490 | KLWeight 0.0010
+[2025-08-25 12:03:27,942::train::INFO] [Train] Iter 0001 | Loss 241.418823 | Grad 3.9329 | KLWeight 0.0010
+[2025-08-25 12:03:28,108::train::INFO] [Train] Iter 0001 | Loss 241.311890 | Grad 3.2526 | KLWeight 0.0010
+[2025-08-25 12:03:28,274::train::INFO] [Train] Iter 0001 | Loss 241.431061 | Grad 3.8122 | KLWeight 0.0010
+[2025-08-25 12:03:28,531::train::INFO] [Train] Iter 0001 | Loss 241.361298 | Grad 3.2631 | KLWeight 0.0010
+[2025-08-25 12:03:28,694::train::INFO] [Train] Iter 0001 | Loss 241.442444 | Grad 3.2011 | KLWeight 0.0010
+[2025-08-25 12:03:28,859::train::INFO] [Train] Iter 0001 | Loss 241.426666 | Grad 3.4321 | KLWeight 0.0010
+[2025-08-25 12:03:29,023::train::INFO] [Train] Iter 0001 | Loss 241.462692 | Grad 3.1148 | KLWeight 0.0010
+[2025-08-25 12:03:29,184::train::INFO] [Train] Iter 0001 | Loss 241.446243 | Grad 3.5822 | KLWeight 0.0010
+[2025-08-25 12:03:29,350::train::INFO] [Train] Iter 0001 | Loss 241.388855 | Grad 3.3369 | KLWeight 0.0010
+[2025-08-25 12:03:29,519::train::INFO] [Train] Iter 0001 | Loss 241.459412 | Grad 3.1276 | KLWeight 0.0010
+[2025-08-25 12:03:29,685::train::INFO] [Train] Iter 0001 | Loss 241.399353 | Grad 3.1613 | KLWeight 0.0010
+[2025-08-25 12:03:29,847::train::INFO] [Train] Iter 0001 | Loss 241.367874 | Grad 2.8724 | KLWeight 0.0010
+[2025-08-25 12:03:30,012::train::INFO] [Train] Iter 0001 | Loss 241.329163 | Grad 3.0623 | KLWeight 0.0010
+[2025-08-25 12:03:30,175::train::INFO] [Train] Iter 0001 | Loss 241.337891 | Grad 2.7583 | KLWeight 0.0010
+[2025-08-25 12:03:30,381::train::INFO] [Train] Iter 0001 | Loss 241.202026 | Grad 4.6324 | KLWeight 0.0010
+[2025-08-25 12:03:30,487::train::INFO] [Train] Iter 0002 | Loss 241.348969 | Grad 2.8730 | KLWeight 0.0010
+[2025-08-25 12:03:30,589::train::INFO] [Train] Iter 0002 | Loss 241.250488 | Grad 2.6275 | KLWeight 0.0010
+[2025-08-25 12:03:30,690::train::INFO] [Train] Iter 0002 | Loss 241.437881 | Grad 2.8409 | KLWeight 0.0010
+[2025-08-25 12:03:30,790::train::INFO] [Train] Iter 0002 | Loss 241.353409 | Grad 2.9802 | KLWeight 0.0010
+[2025-08-25 12:03:30,891::train::INFO] [Train] Iter 0002 | Loss 241.363663 | Grad 2.6201 | KLWeight 0.0010
+[2025-08-25 12:03:30,994::train::INFO] [Train] Iter 0002 | Loss 241.334534 | Grad 2.5142 | KLWeight 0.0010
+[2025-08-25 12:03:31,094::train::INFO] [Train] Iter 0002 | Loss 241.308945 | Grad 2.4090 | KLWeight 0.0010
+[2025-08-25 12:03:31,197::train::INFO] [Train] Iter 0002 | Loss 241.336700 | Grad 2.3882 | KLWeight 0.0010
+[2025-08-25 12:03:31,302::train::INFO] [Train] Iter 0002 | Loss 241.345886 | Grad 2.4754 | KLWeight 0.0010
+[2025-08-25 12:03:31,403::train::INFO] [Train] Iter 0002 | Loss 241.338959 | Grad 2.3079 | KLWeight 0.0010
+[2025-08-25 12:03:31,512::train::INFO] [Train] Iter 0002 | Loss 241.182053 | Grad 2.3091 | KLWeight 0.0010
+[2025-08-25 12:03:31,615::train::INFO] [Train] Iter 0002 | Loss 241.359467 | Grad 2.5334 | KLWeight 0.0010
+[2025-08-25 12:03:31,716::train::INFO] [Train] Iter 0002 | Loss 241.336487 | Grad 2.5798 | KLWeight 0.0010
+[2025-08-25 12:03:31,816::train::INFO] [Train] Iter 0002 | Loss 241.450638 | Grad 2.7733 | KLWeight 0.0010
+[2025-08-25 12:03:31,917::train::INFO] [Train] Iter 0002 | Loss 241.310638 | Grad 2.1919 | KLWeight 0.0010
+[2025-08-25 12:03:31,955::train::INFO] [Train] Iter 0002 | Loss 241.226898 | Grad 4.3157 | KLWeight 0.0010
+[2025-08-25 12:03:32,066::train::INFO] [Train] Iter 0003 | Loss 241.334030 | Grad 2.2555 | KLWeight 0.0010
+[2025-08-25 12:03:32,166::train::INFO] [Train] Iter 0003 | Loss 241.211960 | Grad 2.3713 | KLWeight 0.0010
+[2025-08-25 12:03:32,267::train::INFO] [Train] Iter 0003 | Loss 241.273956 | Grad 2.3691 | KLWeight 0.0010
+[2025-08-25 12:03:32,372::train::INFO] [Train] Iter 0003 | Loss 241.264069 | Grad 2.0469 | KLWeight 0.0010
+[2025-08-25 12:03:32,472::train::INFO] [Train] Iter 0003 | Loss 241.306900 | Grad 2.3684 | KLWeight 0.0010
+[2025-08-25 12:03:32,574::train::INFO] [Train] Iter 0003 | Loss 241.379013 | Grad 2.2171 | KLWeight 0.0010
+[2025-08-25 12:03:32,675::train::INFO] [Train] Iter 0003 | Loss 241.270309 | Grad 2.0354 | KLWeight 0.0010
+[2025-08-25 12:03:32,777::train::INFO] [Train] Iter 0003 | Loss 241.351349 | Grad 2.1113 | KLWeight 0.0010
+[2025-08-25 12:03:32,898::train::INFO] [Train] Iter 0003 | Loss 241.290390 | Grad 1.9701 | KLWeight 0.0010
+[2025-08-25 12:03:33,000::train::INFO] [Train] Iter 0003 | Loss 241.389206 | Grad 2.2098 | KLWeight 0.0010
+[2025-08-25 12:03:33,105::train::INFO] [Train] Iter 0003 | Loss 241.209534 | Grad 2.1203 | KLWeight 0.0010
+[2025-08-25 12:03:33,208::train::INFO] [Train] Iter 0003 | Loss 241.221527 | Grad 1.9294 | KLWeight 0.0010
+[2025-08-25 12:03:33,312::train::INFO] [Train] Iter 0003 | Loss 241.225281 | Grad 2.0710 | KLWeight 0.0010
+[2025-08-25 12:03:33,415::train::INFO] [Train] Iter 0003 | Loss 241.192932 | Grad 2.1369 | KLWeight 0.0010
+[2025-08-25 12:03:33,517::train::INFO] [Train] Iter 0003 | Loss 241.261505 | Grad 2.0352 | KLWeight 0.0010
+[2025-08-25 12:03:33,558::train::INFO] [Train] Iter 0003 | Loss 241.379288 | Grad 3.9304 | KLWeight 0.0010
+[2025-08-25 12:03:33,662::train::INFO] [Train] Iter 0004 | Loss 241.288010 | Grad 1.9310 | KLWeight 0.0010
+[2025-08-25 12:03:33,764::train::INFO] [Train] Iter 0004 | Loss 241.289337 | Grad 1.9237 | KLWeight 0.0010
+[2025-08-25 12:03:33,870::train::INFO] [Train] Iter 0004 | Loss 241.338776 | Grad 1.8580 | KLWeight 0.0010
+[2025-08-25 12:03:33,972::train::INFO] [Train] Iter 0004 | Loss 241.370590 | Grad 2.0683 | KLWeight 0.0010
+[2025-08-25 12:03:34,074::train::INFO] [Train] Iter 0004 | Loss 241.257614 | Grad 1.8919 | KLWeight 0.0010
+[2025-08-25 12:03:34,180::train::INFO] [Train] Iter 0004 | Loss 241.301056 | Grad 1.7827 | KLWeight 0.0010
+[2025-08-25 12:03:34,284::train::INFO] [Train] Iter 0004 | Loss 241.264450 | Grad 1.8561 | KLWeight 0.0010
+[2025-08-25 12:03:34,386::train::INFO] [Train] Iter 0004 | Loss 241.314407 | Grad 1.6669 | KLWeight 0.0010
+[2025-08-25 12:03:34,493::train::INFO] [Train] Iter 0004 | Loss 241.255890 | Grad 1.8029 | KLWeight 0.0010
+[2025-08-25 12:03:34,597::train::INFO] [Train] Iter 0004 | Loss 241.195572 | Grad 1.8003 | KLWeight 0.0010
+[2025-08-25 12:03:34,703::train::INFO] [Train] Iter 0004 | Loss 241.224930 | Grad 1.8887 | KLWeight 0.0010
+[2025-08-25 12:03:34,807::train::INFO] [Train] Iter 0004 | Loss 241.260712 | Grad 1.8548 | KLWeight 0.0010
+[2025-08-25 12:03:34,911::train::INFO] [Train] Iter 0004 | Loss 241.278870 | Grad 1.7827 | KLWeight 0.0010
+[2025-08-25 12:03:35,011::train::INFO] [Train] Iter 0004 | Loss 241.349167 | Grad 1.7980 | KLWeight 0.0010
+[2025-08-25 12:03:35,119::train::INFO] [Train] Iter 0004 | Loss 241.187164 | Grad 1.7070 | KLWeight 0.0010
+[2025-08-25 12:03:35,158::train::INFO] [Train] Iter 0004 | Loss 241.030670 | Grad 3.1184 | KLWeight 0.0010
+[2025-08-25 12:03:35,248::train::INFO] [Train] Iter 0005 | Loss 241.216766 | Grad 1.5121 | KLWeight 0.0010
