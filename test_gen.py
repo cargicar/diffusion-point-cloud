@@ -36,8 +36,8 @@ def normalize_point_clouds(pcs, mode, logger):
 # Arguments
 parser = argparse.ArgumentParser()
 #parser.add_argument('--ckpt', type=str, default='./pretrained/GEN_airplane.pt')
-parser.add_argument('--ckpt', type=str, default='./pretrained/ckpt_0.000000_1000.pt')
-parser.add_argument('--categories', type=str_list, default=['airplane'])
+parser.add_argument('--ckpt', type=str, default='./pretrained/ckpt_0.000000_15000.pt')
+parser.add_argument('--categories', type=str_list, default=['Airplane'])
 parser.add_argument('--save_dir', type=str, default='./results')
 parser.add_argument('--device', type=str, default='cuda')
 # Datasets and loaders
@@ -105,8 +105,8 @@ def plot_batch_3d(batch_of_point_clouds: torch.Tensor):
     batch_size = batch_of_point_clouds.shape[0]
 
     # Loop through each point cloud in the batch
-    #for i in range(batch_size):
-    for i in range(3):
+    for i in range(batch_size):
+    #for i in range(num_samples):
         # Extract the current point cloud tensor
         # .detach() is used to remove it from the computation graph.
         # .cpu() ensures the tensor is on the CPU.
@@ -137,10 +137,6 @@ def plot_batch_3d(batch_of_point_clouds: torch.Tensor):
 
 # --- Example Usage ---
 # Create a dummy tensor that matches your batch size and shape
-dummy_batch = torch.randn(128, 2048, 3)
-
-# Call the function to plot each individual point cloud
-plot_batch_3d(dummy_batch)
 
 # Logging
 save_dir = os.path.join(args.save_dir, 'GEN_Ours_%s_%d' % ('_'.join(args.categories), int(time.time())) )
@@ -164,7 +160,7 @@ test_dset = ShapeNetCore(
 )
 test_loader = DataLoader(test_dset, batch_size=args.batch_size, num_workers=0)
 
-# Model
+# Mode
 logger.info('Loading model...')
 if ckpt['args'].model == 'gaussian':
     model = GaussianVAE(ckpt['args']).to(args.device)
@@ -201,7 +197,7 @@ np.save(os.path.join(save_dir, 'out.npy'), gen_pcs.numpy())
 # Compute metrics
 with torch.no_grad():
     results = compute_all_metrics(gen_pcs.to(args.device), ref_pcs.to(args.device), args.batch_size)
-    results = {k:v.item() for k, v in results.items()}def plot_batch_3d(batch_of_poindef plot_batch_3d(batch_of_point_clouds: torch.Tensor):t_clouds: torch.Tensor):
+    results = {k:v.item() for k, v in results.items()}
     jsd = jsd_between_point_cloud_sets(gen_pcs.cpu().numpy(), ref_pcs.cpu().numpy())
     results['jsd'] = jsd
 
