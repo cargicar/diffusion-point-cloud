@@ -1,5 +1,6 @@
 import torch
 from torch.nn import Module, Linear
+import torch.nn as nn
 from torch.optim.lr_scheduler import LambdaLR
 import numpy as np
 
@@ -51,13 +52,13 @@ class ConcatSquashLinear(Module):
         return ret
 
 
-class MLP(Module):
+class MLP(nn.Module):
     def __init__(
         self,
         in_features,
         hidden_features=None,
         out_features=None,
-        act_layer=nn.LeakyReLU,
+        act_layer=nn.LeakyReLU(),
         drop=0.0,
         norm_layer=None,
         bias=True,
@@ -68,7 +69,7 @@ class MLP(Module):
 
         # Define layers
         self.fc1 = nn.Linear(in_features, hidden_features, bias=bias)
-        self.act = act_layer()
+        self.act = act_layer
         self.fc2 = nn.Linear(hidden_features, out_features, bias=bias)
         self.drop = nn.Dropout(drop) if drop > 0.0 else nn.Identity()
         self.norm = (
@@ -112,3 +113,12 @@ def lr_func(epoch):
         return (1-frac) * 1.0 + frac * (end_lr / start_lr)
     else:
         return end_lr / start_lr
+
+def get_kl_weight(current_step, total_warmup_steps, max_kl_weight):
+    """
+    Calculates the KL weight based on a linear warm-up schedule.
+    """
+    if current_step < total_warmup_steps:
+        return float(current_step) / total_warmup_steps * max_kl_weight
+    else:
+        return max_kl_weight

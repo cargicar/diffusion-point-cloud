@@ -13,15 +13,20 @@ class GaussianVAE(Module):
         self.args = args
         self.encoder = PointNetEncoder(args.latent_dim)
 
-        self.cat_embed = nn.Sequential(
-            nn.Embedding(args.num_classes, args.latent_dim),
-            MLP(
-                args.latent_dim,
-                int(args.mlp_ratio * args.latent_dim),
-                act_layer=args.latent_dim,
-                drop=0.1,
-            ),
+        self.cat_embedding =nn.Embedding(
+            num_embeddings=args.num_classes,
+            embedding_dim=args.latent_dim
         )
+        #NOTE omnilearn cat embedding
+        # self.cat_embedding = nn.Sequential(
+        #     nn.Embedding(args.num_classes, args.latent_dim),
+        #     MLP(
+        #         args.latent_dim,
+        #         int(args.mlp_ratio * args.latent_dim),
+        #         act_layer=args.latent_dim,
+        #         drop=0.1,
+        #     ),
+        # )
         
 
         self.diffusion = DiffusionPoint(
@@ -38,6 +43,7 @@ class GaussianVAE(Module):
         """
         Args:
             x:  Input point clouds, (B, N, d).
+            y:  categories int labels (B,)
         """
         batch_size, _, _ = x.size()
         z_mu, z_sigma = self.encoder(x)
@@ -93,3 +99,33 @@ class GaussianVAE(Module):
 
         samples = self.diffusion.sample(num_points, context=z_conditioned, flexibility=self.args.flexibility)
         return samples
+    
+    """ 
+    Understanding the kl_weight
+
+    The kl_weight is a hyperparameter that balances two components of the variational autoencoder (VAE) loss function:
+
+        loss_recons: The reconstruction loss, which measures how accurately the model can reconstruct the input point cloud from the latent space.
+
+        loss_prior: The KL divergence loss, which measures how much the learned latent distribution deviates from a standard normal distribution. This term is a regularizer that prevents the encoder from collapsing into a single point, ensuring the latent space is well-structured and easy to sample from.
+
+    The total loss is calculated as: loss = kl_weight * loss_prior + loss_recons.
+
+        A high kl_weight forces the model to prioritize making the latent distribution Gaussian. This can lead to a phenomenon known as posterior collapse, where the model ignores the latent variable and the encoder learns to output a fixed distribution, as it is heavily penalized for any deviation.
+
+        A low kl_weight prioritizes reconstruction, allowing the latent space to become more complex and potentially less Gaussian. While this might improve reconstruction quality, it makes the latent space harder to navigate and sample from, which is bad for generating new data.
+
+    KL Annealing
+
+    Instead of using a fixed kl_weight, a common and effective technique is KL annealing. This involves gradually increasing the value of kl_weight during training.
+
+    A typical KL annealing schedule looks like this:
+
+        Warm-up phase: Start with kl_weight = 0 for the initial epochs. This allows the model to first focus solely on learning a good reconstruction, establishing a stable representation.
+
+        Gradual increase: Slowly ramp up kl_weight from 0 to a target value (e.g., 1.0) over a set number of epochs. This gently encourages the latent distribution to conform to the prior without collapsing.
+
+        Constant phase: Keep kl_weight at a fixed value (e.g., 1.0) for the rest of the training.
+
+    By using KL annealing, you get the best of both worlds: the model first learns to reconstruct well and then is regularized to maintain a structured latent space, avoiding posterior collapse and enabling high-quality generation.
+    """

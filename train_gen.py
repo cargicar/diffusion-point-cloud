@@ -38,7 +38,7 @@ parser.add_argument('--latent_flow_hidden_dim', type=int, default=256)
 parser.add_argument('--num_samples', type=int, default=4)
 parser.add_argument('--num_classes', type=int, default=len(cats))
 parser.add_argument('--sample_num_points', type=int, default=2048)
-parser.add_argument('--kl_weight', type=float, default=0.001)
+parser.add_argument('--kl_weight', type=float, default=0.005)
 parser.add_argument('--residual', type=eval, default=True, choices=[True, False])
 parser.add_argument('--spectral_norm', type=eval, default=False, choices=[True, False])
 parser.add_argument("--mlp_ratio", type=int, default=2,
@@ -194,15 +194,21 @@ scheduler = get_linear_scheduler(
     start_lr=args.lr,
     end_lr=args.end_lr
 )
+
 # Train, validate and test
 def train(it):
+    # Hyperparameters
+    max_kl_weight = 1.0  # The final, constant KL weight
+    #total_warmup_steps = 1000  # Number of steps to linearly increase the weight
+    global_step = 0
+
     # Load data
     for batch in train_loader:
     #batch = next(train_iter)
         x = batch["pointcloud"]
         y = batch["cate"]
         #x = batch.to(args.device)
-        #y = y.to(args.device)
+        y = y.to(args.device)
         x = x.to(args.device)
         # Reset grad and model state
         optimizer.zero_grad()
@@ -212,13 +218,16 @@ def train(it):
 
         # Forward
         kl_weight = args.kl_weight
-        loss = model.get_loss(x, kl_weight=kl_weight, writer=writer, it=it)
+        #kl_weight =get_kl_weight(global_step, args.num_steps, max_kl_weight)
+        loss = model.get_loss(x, y, kl_weight=kl_weight, writer=writer, it=it)
 
         # Backward and optimize
         loss.backward()
         orig_grad_norm = clip_grad_norm_(model.parameters(), args.max_grad_norm)
         optimizer.step()
         scheduler.step()
+        # Increment the global step counter
+        global_step += 1
 
         logger.info('[Train] Iter %04d | Loss %.6f | Grad %.4f | KLWeight %.4f' % (
             it, loss.item(), orig_grad_norm, kl_weight
