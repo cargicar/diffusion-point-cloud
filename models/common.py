@@ -51,6 +51,44 @@ class ConcatSquashLinear(Module):
         return ret
 
 
+class MLP(Module):
+    def __init__(
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_layer=nn.LeakyReLU,
+        drop=0.0,
+        norm_layer=None,
+        bias=True,
+    ):
+        super().__init__()
+        out_features = out_features or in_features
+        hidden_features = hidden_features or in_features
+
+        # Define layers
+        self.fc1 = nn.Linear(in_features, hidden_features, bias=bias)
+        self.act = act_layer()
+        self.fc2 = nn.Linear(hidden_features, out_features, bias=bias)
+        self.drop = nn.Dropout(drop) if drop > 0.0 else nn.Identity()
+        self.norm = (
+            norm_layer(hidden_features) if norm_layer is not None else nn.Identity()
+        )
+
+    def forward(self, x, mask=None):
+        # Apply the first linear layer, activation, dropout, and norm
+        x = self.fc1(x)
+        x = self.act(x)
+        x = self.norm(x)
+        x = self.drop(x)
+        # Apply the second linear layer, norm, and dropout
+        x = self.fc2(x)
+        x = self.drop(x)
+        if mask is not None:
+            x = x * mask
+        return x
+
+
 def get_linear_scheduler(optimizer, start_epoch, end_epoch, start_lr, end_lr):
     def lr_func(epoch):
         if epoch <= start_epoch:

@@ -15,6 +15,13 @@ from models.vae_flow import *
 from models.flow import add_spectral_norm, spectral_norm_power_iteration
 from evaluation import *
 
+cats = ['Airplane', 'Bag', 'Basket', 'Bathtub', 'Bed', 'Bench', 'Bottle', 'Bowl', 'Bus', 
+        'Cabinet', 'Can', 'Camera', 'Cap', 'Car', 'Chair', 'Clock', 'Dishwasher', 'Monitor', 
+        'Table', 'Telephone', 'Tin_can', 'Tower', 'Train', 'Keyboard', 'Earphone', 'Faucet', 
+        'File', 'Guitar', 'Helmet', 'Jar', 'Knife', 'Lamp', 'Laptop', 'Speaker', 'Mailbox', 
+        'Microphone', 'Microwave', 'Motorcycle', 'Mug', 'Piano', 'Pillow', 'Pistol', 'Pot', 
+        'Printer', 'Remote_control', 'Rifle', 'Rocket', 'Skateboard', 'Sofa', 'Stove',
+        'Vessel', 'Washer', 'Cellphone', 'Birdhouse', 'Bookshelf']
 # Arguments
 parser = argparse.ArgumentParser()
 # Model arguments
@@ -29,15 +36,19 @@ parser.add_argument('--truncate_std', type=float, default=2.0)
 parser.add_argument('--latent_flow_depth', type=int, default=14)
 parser.add_argument('--latent_flow_hidden_dim', type=int, default=256)
 parser.add_argument('--num_samples', type=int, default=4)
+parser.add_argument('--num_classes', type=int, default=len(cats))
 parser.add_argument('--sample_num_points', type=int, default=2048)
 parser.add_argument('--kl_weight', type=float, default=0.001)
 parser.add_argument('--residual', type=eval, default=True, choices=[True, False])
 parser.add_argument('--spectral_norm', type=eval, default=False, choices=[True, False])
+parser.add_argument("--mlp_ratio", type=int, default=2,
+                        help="MLP hidden dimension ratio relative to base_dim.")
 
 # Datasets and loaders
 parser.add_argument('--dataset_path', type=str, default='/pscratch/sd/c/ccardona/datasets/shapenetCore/')
 #parser.add_argument('--dataset_path', type=str, default='../../datasets/modelnet40_normal_resampled/')
-parser.add_argument('--categories', type=str_list, default=['Airplane'])
+#parser.add_argument('--categories', type=str_list, default=['Airplane'])
+parser.add_argument('--categories', type=str_list, default=cats)
 parser.add_argument('--scale_mode', type=str, default='shape_unit')
 parser.add_argument('--train_batch_size', type=int, default=128)
 parser.add_argument('--val_batch_size', type=int, default=64)
@@ -190,7 +201,6 @@ def train(it):
     #batch = next(train_iter)
         x = batch["pointcloud"]
         y = batch["cate"]
-        #breakpoint()
         #x = batch.to(args.device)
         #y = y.to(args.device)
         x = x.to(args.device)
