@@ -79,7 +79,7 @@ class GaussianVAE(Module):
     #     samples = self.diffusion.sample(num_points, context=z, flexibility=flexibility)
     #     return samples
 
-    def sample(self, y, num_points, truncate_std=None):
+    def sample(self, y, num_points, flexibility, truncate_std=None):
         """
         Args:
             num_points: Number of points to sample.
@@ -97,7 +97,7 @@ class GaussianVAE(Module):
         if truncate_std is not None:
             z_conditioned = truncated_normal_(z_conditioned, mean=category_embed, std=1, trunc_std=truncate_std)
 
-        samples = self.diffusion.sample(num_points, context=z_conditioned, flexibility=self.args.flexibility)
+        samples = self.diffusion.sample(num_points, context=z_conditioned, flexibility=flexibility)
         return samples
     
     """ 

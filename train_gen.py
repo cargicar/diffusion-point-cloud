@@ -228,10 +228,10 @@ def train(it):
         scheduler.step()
         # Increment the global step counter
         global_step += 1
-
-        logger.info('[Train] Iter %04d | Loss %.6f | Grad %.4f | KLWeight %.4f' % (
-            it, loss.item(), orig_grad_norm, kl_weight
-        ))
+        if it%100==0:
+            logger.info('[Train] Iter %04d | Loss %.6f | Grad %.4f | KLWeight %.4f' % (
+                it, loss.item(), orig_grad_norm, kl_weight
+            ))
         writer.add_scalar('train/loss', loss, it)
         writer.add_scalar('train/kl_weight', kl_weight, it)
         writer.add_scalar('train/lr', optimizer.param_groups[0]['lr'], it)
