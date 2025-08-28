@@ -35,9 +35,9 @@ parser.add_argument('--flexibility', type=float, default=0.0)
 parser.add_argument('--truncate_std', type=float, default=2.0)
 parser.add_argument('--latent_flow_depth', type=int, default=14)
 parser.add_argument('--latent_flow_hidden_dim', type=int, default=256)
-parser.add_argument('--num_samples', type=int, default=4)
+parser.add_argument('--num_samples', type=int, default=10)
 parser.add_argument('--num_classes', type=int, default=len(cats))
-parser.add_argument('--sample_num_points', type=int, default=2048)
+parser.add_argument('--sample_num_points', type=int, default=1000)
 parser.add_argument('--kl_weight', type=float, default=0.005)
 parser.add_argument('--residual', type=eval, default=True, choices=[True, False])
 parser.add_argument('--spectral_norm', type=eval, default=False, choices=[True, False])
@@ -51,7 +51,7 @@ parser.add_argument('--dataset_path', type=str, default='/pscratch/sd/c/ccardona
 parser.add_argument('--categories', type=str_list, default=cats)
 parser.add_argument('--scale_mode', type=str, default='shape_unit')
 parser.add_argument('--train_batch_size', type=int, default=128)
-parser.add_argument('--val_batch_size', type=int, default=64)
+parser.add_argument('--val_batch_size', type=int, default=32)
 
 # Optimizer and scheduler
 parser.add_argument('--lr', type=float, default=1e-4)
@@ -67,9 +67,9 @@ parser.add_argument('--logging', type=eval, default=True, choices=[True, False])
 parser.add_argument('--log_root', type=str, default='./logs_gen')
 parser.add_argument('--device', type=str, default='cuda')
 parser.add_argument('--max_iters', type=int, default=float('inf'))
-parser.add_argument('--val_freq', type=int, default=1000)
-parser.add_argument('--test_freq', type=int, default=30*THOUSAND)
-parser.add_argument('--test_size', type=int, default=400)
+parser.add_argument('--val_freq', type=int, default=500)
+parser.add_argument('--test_freq', type=int, default=1000)
+parser.add_argument('--test_size', type=int, default=100)
 parser.add_argument('--tag', type=str, default=None)
 args = parser.parse_args()
 seed_all(args.seed)
@@ -239,25 +239,30 @@ def train(it):
         writer.flush()
 
 def validate_inspect(it):
-    z = torch.randn([args.num_samples, args.latent_dim]).to(args.device)
-    x = model.sample(z, args.sample_num_points, flexibility=args.flexibility) #, truncate_std=args.truncate_std)
+    #z = torch.randn([args.num_samples, args.latent_dim]).to(args.device)
+    num_class = len(args.categories)
+    y = torch.randint(0,num_class,(32,)).to(args.device)
+    x = model.sample(y, args.sample_num_points, flexibility=args.flexibility) #, truncate_std=args.truncate_std)
     writer.add_mesh('val/pointcloud', x, global_step=it)
     writer.flush()
     logger.info('[Inspect] Generating samples...')
 
+#FIXME under dev
 def test():
     ref_pcs = []
     for i, data in enumerate(val_dset):
         if i >= args.test_size:
             break
-        ref_pcs.append(data['pointcloud'].unsqueeze(0))
+        ref_pcs.append((data['pointcloud'].unsqueeze(0),data['cate']))
     ref_pcs = torch.cat(ref_pcs, dim=0)
 
     gen_pcs = []
+    num_class = len(args.categories)
     for i in tqdm(range(0, math.ceil(args.test_size / args.val_batch_size)), 'Generate'):
         with torch.no_grad():
-            z = torch.randn([args.val_batch_size, args.latent_dim]).to(args.device)
-            x = model.sample(z, args.sample_num_points, flexibility=args.flexibility)
+            #z = torch.randn([args.val_batch_size, args.latent_dim]).to(args.device)
+            y = torch.randint(0,num_class,(args.val_batch_size,)).to(args.device)
+            x = model.sample(y, args.sample_num_points, flexibility=args.flexibility)
             gen_pcs.append(x.detach().cpu())
     gen_pcs = torch.cat(gen_pcs, dim=0)[:args.test_size]
 
@@ -304,8 +309,9 @@ try:
                 'scheduler': scheduler.state_dict(),
             }
             ckpt_mgr.save(model, args, 0, others=opt_states, step=it)
-        if it % args.test_freq == 0 or it == args.max_iters:
-            test(it)
+        #TODO enable test
+        # if it % args.test_freq == 0 or it == args.max_iters:
+        #     test(it)
         it += 1
 
 except KeyboardInterrupt:
