@@ -16,19 +16,18 @@ import numpy as np
 class PointTransformerEncoder(nn.Module):
     def __init__(self, zdim, input_dim=3, cfg=None):
         super().__init__()
-        npoints, nblocks, nneighbor, n_c, d_points = cfg.num_point, cfg.model.nblocks, cfg.model.nneighbor, cfg.num_class, cfg.input_dim
         # We'll use a hardcoded config for demonstration if none is provided.
         if cfg is None:
             class DummyConfig:
                 def __init__(self):
-                    self.num_point = 1024
+                    self.num_point = 500
                     self.input_dim = 3
-                    self.model = type('DummyModel', (), {
-                        'nblocks': 4,
-                        'nneighbor': 16,
-                        'transformer_dim': 512
-                    })()
+                    self.nblocks = 4
+                    self.nneighbor = 16
+                    self.transformer_dim= 128 #512 kill my gpu, this could be a bottleneck to overcome
+                    self.input_dim = input_dim
             cfg = DummyConfig()
+        npoints, nblocks, nneighbor, transformer_dim, d_points = cfg.num_point, cfg.nblocks, cfg.nneighbor, cfg.transformer_dim, cfg.input_dim
 
         self.zdim = zdim
         
@@ -38,23 +37,22 @@ class PointTransformerEncoder(nn.Module):
             nn.ReLU(),
             nn.Linear(32, 32)
         )
-        self.transformer1 = TransformerBlock(32, cfg.model.transformer_dim, cfg.model.nneighbor)
-
+        self.transformer1 = TransformerBlock(32, transformer_dim, nneighbor)
         # Hierarchical downsampling and feature learning
         self.transition_downs = nn.ModuleList()
         self.transformers = nn.ModuleList()
-        for i in range(cfg.model.nblocks):
+        for i in range(nblocks):
             channel = 32 * 2 ** (i + 1)
             self.transition_downs.append(TransitionDown(
-                cfg.num_point // 4 ** (i + 1),
-                cfg.model.nneighbor,
+                npoints // 4 ** (i + 1),
+                nneighbor,
                 [channel // 2 + 3, channel, channel]
             ))
-            self.transformers.append(TransformerBlock(channel, cfg.model.transformer_dim, cfg.model.nneighbor))
+            self.transformers.append(TransformerBlock(channel, transformer_dim, nneighbor))
 
         # Final layers to map to the latent space (mean and log-variance)
         # The output feature size from the last TransformerBlock will be 32 * 2**nblocks
-        final_feature_dim = 32 * 2 ** cfg.model.nblocks
+        final_feature_dim = 32 * 2 ** nblocks
         
         # Networks for latent mean (m)
         self.fc_m1 = nn.Linear(final_feature_dim, 256)

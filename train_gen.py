@@ -26,6 +26,7 @@ cats = ['Airplane', 'Bag', 'Basket', 'Bathtub', 'Bed', 'Bench', 'Bottle', 'Bowl'
 parser = argparse.ArgumentParser()
 # Model arguments
 parser.add_argument('--model', type=str, default='gaussian', choices=['flow', 'gaussian'])
+parser.add_argument('--point_dim', type=int, default=3)
 parser.add_argument('--latent_dim', type=int, default=512)
 parser.add_argument('--num_steps', type=int, default=1000)
 parser.add_argument('--beta_1', type=float, default=1e-5)
@@ -45,8 +46,8 @@ parser.add_argument("--mlp_ratio", type=int, default=2,
                         help="MLP hidden dimension ratio relative to base_dim.")
 
 # Datasets and loaders
-parser.add_argument('--dataset_path', type=str, default='/pscratch/sd/c/ccardona/datasets/shapenetCore/')
-#parser.add_argument('--dataset_path', type=str, default='../../datasets/modelnet40_normal_resampled/')
+#parser.add_argument('--dataset_path', type=str, default='/pscratch/sd/c/ccardona/datasets/shapenetCore/')
+parser.add_argument('--dataset_path', type=str, default='../../datasets/shapenetCore/')
 #parser.add_argument('--categories', type=str_list, default=['Airplane'])
 parser.add_argument('--categories', type=str_list, default=cats)
 parser.add_argument('--scale_mode', type=str, default='shape_unit')
@@ -228,7 +229,7 @@ def train(it):
         scheduler.step()
         # Increment the global step counter
         global_step += 1
-        if it%100==0:
+        if it%10==0:
             logger.info('[Train] Iter %04d | Loss %.6f | Grad %.4f | KLWeight %.4f' % (
                 it, loss.item(), orig_grad_norm, kl_weight
             ))

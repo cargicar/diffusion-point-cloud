@@ -11,7 +11,8 @@ class GaussianVAE(Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.encoder = PointNetEncoder(args.latent_dim)
+        #self.encoder = PointNetEncoder(args.latent_dim)
+        self.encoder = PointTransformerEncoder(args.latent_dim, input_dim=args.point_dim)
 
         self.cat_embedding =nn.Embedding(
             num_embeddings=args.num_classes,
