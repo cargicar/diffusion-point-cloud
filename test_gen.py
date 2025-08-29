@@ -33,20 +33,86 @@ def normalize_point_clouds(pcs, mode, logger):
     return pcs
 
 
+cats = ['Airplane', 'Bag', 'Basket', 'Bathtub', 'Bed', 'Bench', 'Bottle', 'Bowl', 'Bus', 
+        'Cabinet', 'Can', 'Camera', 'Cap', 'Car', 'Chair', 'Clock', 'Dishwasher', 'Monitor', 
+        'Table', 'Telephone', 'Tin_can', 'Tower', 'Train', 'Keyboard', 'Earphone', 'Faucet', 
+        'File', 'Guitar', 'Helmet', 'Jar', 'Knife', 'Lamp', 'Laptop', 'Speaker', 'Mailbox', 
+        'Microphone', 'Microwave', 'Motorcycle', 'Mug', 'Piano', 'Pillow', 'Pistol', 'Pot', 
+        'Printer', 'Remote_control', 'Rifle', 'Rocket', 'Skateboard', 'Sofa', 'Stove',
+        'Vessel', 'Washer', 'Cellphone', 'Birdhouse', 'Bookshelf']
+
+int__to_classes = {
+    0: 'Airplane',
+    1: 'Bag',
+    2: 'Basket',
+    3: 'Bathtub',
+    4: 'Bed',
+    5: 'Bench',
+    6: 'Bottle',
+    7: 'Bowl',
+    8: 'Bus',
+    9: 'Cabinet',
+    10: 'Can',
+    11: 'Camera',
+    12: 'Cap',
+    13: 'Car',
+    14: 'Chair',
+    15: 'Clock',
+    16: 'Dishwasher',
+    17: 'Monitor',
+    18: 'Table',
+    19: 'Telephone',
+    20: 'Tin_can',
+    21: 'Tower',
+    22: 'Train',
+    23: 'Keyboard',
+    24: 'Earphone',
+    25: 'Faucet',
+    26: 'File',
+    27: 'Guitar',
+    28: 'Helmet',
+    29: 'Jar',
+    30: 'Knife',
+    31: 'Lamp',
+    32: 'Laptop',
+    33: 'Speaker',
+    34: 'Mailbox',
+    35: 'Microphone',
+    36: 'Microwave',
+    37: 'Motorcycle',
+    38: 'Mug',
+    39: 'Piano',
+    40: 'Pillow',
+    41: 'Pistol',
+    42: 'Pot',
+    43: 'Printer',
+    44: 'Remote_control',
+    45: 'Rifle',
+    46: 'Rocket',
+    47: 'Skateboard',
+    48: 'Sofa',
+    49: 'Stove',
+    50: 'Vessel',
+    51: 'Washer',
+    52: 'Cellphone',
+    53: 'Birdhouse',
+    54: 'Bookshelf'
+}
 # Arguments
 parser = argparse.ArgumentParser()
 #parser.add_argument('--ckpt', type=str, default='./pretrained/GEN_airplane.pt')
-parser.add_argument('--ckpt', type=str, default='./pretrained/ckpt_0.000000_15000.pt')
-parser.add_argument('--categories', type=str_list, default=['Airplane'])
+parser.add_argument('--ckpt', type=str, default='./pretrained/ckpt_0.000000_4000_55cate.pt')
+parser.add_argument('--categories', type=str_list, default=cats)
 parser.add_argument('--save_dir', type=str, default='./results')
 parser.add_argument('--device', type=str, default='cuda')
+parser.add_argument('--flexibility', type=float, default=0.0)
 # Datasets and loaders
 #parser.add_argument('--dataset_path', type=str, default='./data/shapenet.hdf5')
 parser.add_argument('--dataset_path', type=str, default='/pscratch/sd/c/ccardona/datasets/shapenetCore/')
 parser.add_argument('--batch_size', type=int, default=128)
 # Sampling
-parser.add_argument('--sample_num_points', type=int, default=2048)
-parser.add_argument('--normalize', type=str, default='shape_bbox', choices=[None, 'shape_unit', 'shape_bbox'])
+parser.add_argument('--sample_num_points', type=int, default=1000)
+parser.add_argument('--normalize', type=str, default='shape_unit', choices=[None, 'shape_unit', 'shape_bbox'])
 parser.add_argument('--seed', type=int, default=9988)
 args = parser.parse_args()
 
@@ -91,7 +157,7 @@ def pad_tensors_to_max_size(tensor_list: list) -> list:
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-def plot_batch_3d(batch_of_point_clouds: torch.Tensor):
+def plot_batch_3d(batch_of_point_clouds: torch.Tensor, cates):
     """
     Plots each individual point cloud from a batch in a separate 3D scatter plot.
 
@@ -112,7 +178,7 @@ def plot_batch_3d(batch_of_point_clouds: torch.Tensor):
         # .cpu() ensures the tensor is on the CPU.
         # .numpy() converts the tensor to a NumPy array, which matplotlib requires.
         point_cloud = batch_of_point_clouds[i].detach().cpu().numpy()
-
+        category = cates[i]
         # Separate the coordinates for plotting
         x = point_cloud[:, 0]
         y = point_cloud[:, 1]
@@ -129,17 +195,17 @@ def plot_batch_3d(batch_of_point_clouds: torch.Tensor):
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
-        ax.set_title(f'Point Cloud {i+1} of {batch_size}')
+        ax.set_title(f'Point Cloud {i+1} of {int__to_classes[category]}')
         
         # Display the plot
-        plt.savefig(f"results/gen_{i}.png")
+        plt.savefig(f"results/gen_cate:{int__to_classes[category]}.png")
+        plt.close()
 
 
-# --- Example Usage ---
-# Create a dummy tensor that matches your batch size and shape
 
 # Logging
-save_dir = os.path.join(args.save_dir, 'GEN_Ours_%s_%d' % ('_'.join(args.categories), int(time.time())) )
+#save_dir = os.path.join(args.save_dir, 'GEN_Ours_%s_%d' % ('_'.join(args.categories), int(time.time())) )
+save_dir = os.path.join(args.save_dir, 'GEN_Ours_%s_%d' % ('_'.join("55_cats"), int(time.time())) )
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 logger = get_logger('test', save_dir)
@@ -152,6 +218,7 @@ seed_all(args.seed)
 
 # Datasets and loaders
 logger.info('Loading datasets...')
+
 test_dset = ShapeNetCore(
     path=args.dataset_path,
     cates=args.categories,
@@ -170,23 +237,35 @@ logger.info(repr(model))
 # if ckpt['args'].spectral_norm:
 #     add_spectral_norm(model, logger=logger)
 model.load_state_dict(ckpt['state_dict'])
-
+#test_size = len(test_dset)
+test_size = 100
 # Reference Point Clouds
 ref_pcs = []
+ref_cats = []
 for i, data in enumerate(test_dset):
+    if i >= test_size:
+            break
     ref_pcs.append(data['pointcloud'].unsqueeze(0))
-ref_pcs_padded = pad_tensors_to_max_size(ref_pcs)
-ref_pcs = torch.cat(ref_pcs_padded, dim=0)
+    ref_cats.append(data['cate'])
+ref_pcs = torch.cat(ref_pcs, dim=0)
 
 # Generate Point Clouds
+num_class = len(args.categories)
 gen_pcs = []
-for i in tqdm(range(0, math.ceil(len(test_dset) / args.batch_size)), 'Generate'):
+# for i in tqdm(range(0, math.ceil(len(test_dset) / args.batch_size)), 'Generate'):
+#     with torch.no_grad():
+#         #z = torch.randn([args.val_batch_size, args.latent_dim]).to(args.device)
+#         y = torch.randint(0,num_class,(args.val_batch_size,)).to(args.device)
+#         x = model.sample(y, args.sample_num_points, flexibility=args.flexibility)
+#         gen_pcs.append((x.detach().cpu(),y))
+for y in tqdm(ref_cats, 'Generate'):
     with torch.no_grad():
-        z = torch.randn([args.batch_size, ckpt['args'].latent_dim]).to(args.device)
-        x = model.sample(z, args.sample_num_points, flexibility=ckpt['args'].flexibility)
+        y = torch.tensor(y, dtype=torch.int32).to(args.device)
+        x = model.sample(y, args.sample_num_points, flexibility=args.flexibility)
         gen_pcs.append(x.detach().cpu())
-gen_pcs = torch.cat(gen_pcs, dim=0)[:len(test_dset)]
-plot_batch_3d(gen_pcs)
+gen_pcs = torch.cat(gen_pcs, dim=0)
+
+plot_batch_3d(gen_pcs, ref_cats)
 if args.normalize is not None:
     gen_pcs = normalize_point_clouds(gen_pcs, mode=args.normalize, logger=logger)
 

@@ -85,7 +85,10 @@ class GaussianVAE(Module):
             num_points: Number of points to sample.
             y: A tensor of category indices, (B,).
         """
-        batch_size = y.size(0)
+        try:
+            batch_size = y.size(0)
+        except: 
+            batch_size = 1
 
         # Sample a standard normal latent vector z
         z = torch.randn(batch_size, self.args.latent_dim, device=y.device)

@@ -2,9 +2,9 @@
 
 #SBATCH --job-name=omnilearn_shapenet
 #SBATCH --nodes=1
-#SBATCH --time=5:00:00
+#SBATCH --time=8:00:00
 #SBATCH --constraint=gpu
-#SBATCH --gpus=4
+#SBATCH --gpus=1
 #SBATCH --qos=regular
 #SBATCH --account=m3246
 ##SBATCH --volume="/pscratch/sd/c/ccardona:/pscratch/sd/c/ccardona"
